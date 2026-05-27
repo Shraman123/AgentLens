@@ -6,7 +6,7 @@ import httpx
 import random
 import time
 
-API_URL = "http://localhost:8000"
+API_URL = "https://shraman18-agentlens-backend.hf.space"
 API_KEY = "ak_demo_123456789"
 HEADERS = {"x-api-key": API_KEY, "Content-Type": "application/json"}
 

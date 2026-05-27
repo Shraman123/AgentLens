@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AgentLens — Know What Your AI Agent Is Doing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080808;
+  --bg2: #0f0f0f;
+  --bg3: #161616;
+  --border: #1e1e1e;
+  --border2: #2a2a2a;
+  --text: #f0f0f0;
+  --text2: #777;
+  --text3: #444;
+  --accent: #00ff88;
+  --accent2: #00cc6a;
+  --red: #ff4444;
+  --yellow: #ffcc00;
+  --blue: #4488ff;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  overflow-x: hidden;
+}
+
+/* ── noise overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.4;
+}
+
+/* ── nav ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 48px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,8,8,0.9);
+  backdrop-filter: blur(12px);
+}
+
+.nav-logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.nav-logo .dot {
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2s ease infinite;
+}
+
+@keyframes pulse {
+  0%,100%{opacity:1;transform:scale(1);}
+  50%{opacity:0.4;transform:scale(0.8);}
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--text); }
+
+.nav-cta {
+  background: var(--accent);
+  color: #000 !important;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  transition: background 0.2s !important;
+}
+
+.nav-cta:hover { background: var(--accent2) !important; color: #000 !important; }
+
+/* ── hero ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.4;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
+}
+
+.hero-glow {
+  position: absolute;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(0,255,136,0.06) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,255,136,0.06);
+  border: 1px solid rgba(0,255,136,0.2);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  animation: fadeUp 0.6s ease both;
+}
+
+.badge-dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 1.5s ease infinite;
+}
+
+h1 {
+  font-size: clamp(42px, 7vw, 88px);
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  margin-bottom: 28px;
+  animation: fadeUp 0.6s 0.1s ease both;
+}
+
+h1 .accent { color: var(--accent); }
+h1 .dim { color: var(--text3); }
+
+.hero-sub {
+  font-size: clamp(16px, 2vw, 20px);
+  color: var(--text2);
+  max-width: 560px;
+  line-height: 1.6;
+  font-weight: 400;
+  margin-bottom: 48px;
+  animation: fadeUp 0.6s 0.2s ease both;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 72px;
+  animation: fadeUp 0.6s 0.3s ease both;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+  padding: 14px 32px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 15px;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary:hover {
+  background: var(--accent2);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  padding: 14px 32px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-ghost:hover {
+  border-color: var(--text3);
+  color: var(--text);
+}
+
+/* ── stats row ── */
+.hero-stats {
+  display: flex;
+  gap: 48px;
+  animation: fadeUp 0.6s 0.4s ease both;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  display: block;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+/* ── dashboard preview ── */
+.preview-section {
+  padding: 0 24px 120px;
+  max-width: 1100px;
+  margin: 0 auto;
+  animation: fadeUp 0.6s 0.5s ease both;
+}
+
+.preview-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,255,136,0.05);
+}
+
+.preview-bar {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+.preview-url {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  margin: 0 12px;
+}
+
+.preview-inner {
+  padding: 28px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mini-stat {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+
+.mini-stat-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+
+.mini-stat-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.preview-bottom {
+  padding: 0 28px 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mini-panel {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+}
+
+.mini-panel-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+.mini-intent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mini-intent-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text2);
+  width: 120px;
+}
+
+.mini-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mini-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.mini-sent-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mini-sent-pill {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  border: 1px solid;
+}
+
+/* ── features ── */
+.features {
+  padding: 120px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+
+.section-sub {
+  color: var(--text2);
+  font-size: 17px;
+  max-width: 500px;
+  line-height: 1.6;
+  margin-bottom: 64px;
+  font-weight: 400;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.feature-card {
+  background: var(--bg2);
+  padding: 36px 32px;
+  transition: background 0.2s;
+}
+
+.feature-card:hover { background: var(--bg3); }
+
+.feature-icon {
+  width: 40px; height: 40px;
+  background: rgba(0,255,136,0.08);
+  border: 1px solid rgba(0,255,136,0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+
+.feature-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.feature-desc {
+  color: var(--text2);
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+/* ── how it works ── */
+.how {
+  padding: 120px 24px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.how-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+  margin-top: 64px;
+}
+
+.step {
+  position: relative;
+}
+
+.step-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+
+.step-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.step-desc {
+  color: var(--text2);
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+.step-code {
+  margin-top: 16px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  line-height: 1.6;
+}
+
+/* ── pricing ── */
+.pricing {
+  padding: 120px 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 64px;
+  text-align: left;
+}
+
+.pricing-card {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 36px;
+  position: relative;
+}
+
+.pricing-card.featured {
+  border-color: rgba(0,255,136,0.3);
+  background: rgba(0,255,136,0.03);
+}
+
+.pricing-tag {
+  position: absolute;
+  top: -12px; left: 24px;
+  background: var(--accent);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.pricing-plan {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  margin-bottom: 12px;
+}
+
+.pricing-price {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.pricing-period {
+  font-size: 13px;
+  color: var(--text3);
+  margin-bottom: 28px;
+  font-weight: 400;
+}
+
+.pricing-features {
+  list-style: none;
+  margin-bottom: 32px;
+}
+
+.pricing-features li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 400;
+}
+
+.pricing-features li::before {
+  content: '✓';
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.pricing-btn {
+  display: block;
+  text-align: center;
+  padding: 12px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.pricing-btn-primary {
+  background: var(--accent);
+  color: #000;
+}
+
+.pricing-btn-primary:hover { background: var(--accent2); }
+
+.pricing-btn-ghost {
+  border: 1px solid var(--border2);
+  color: var(--text2);
+}
+
+.pricing-btn-ghost:hover { border-color: var(--text3); color: var(--text); }
+
+/* ── CTA ── */
+.cta-section {
+  padding: 120px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-glow {
+  position: absolute;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(0,255,136,0.08) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.cta-title {
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 24px;
+}
+
+.cta-sub {
+  color: var(--text2);
+  font-size: 18px;
+  margin-bottom: 48px;
+  font-weight: 400;
+}
+
+/* ── email form ── */
+.email-form {
+  display: flex;
+  gap: 0;
+  max-width: 460px;
+  margin: 0 auto 16px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.email-form:focus-within { border-color: var(--accent); }
+
+.email-input {
+  flex: 1;
+  background: var(--bg2);
+  border: none;
+  padding: 14px 18px;
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  outline: none;
+}
+
+.email-input::placeholder { color: var(--text3); }
+
+.email-btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 14px 24px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.email-btn:hover { background: var(--accent2); }
+
+.form-note {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.success-msg {
+  display: none;
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+/* ── footer ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.footer-note {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* ── animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── responsive ── */
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .nav-links { display: none; }
+  .features-grid, .steps, .pricing-grid { grid-template-columns: 1fr; }
+  .preview-inner { grid-template-columns: repeat(2, 1fr); }
+  .preview-bottom { grid-template-columns: 1fr; }
+  footer { flex-direction: column; gap: 12px; text-align: center; }
+  .hero-stats { gap: 24px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="dot"></div>
+    AgentLens
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="https://agent-lens-two.vercel.app
+" target="_blank" class="nav-cta">Live Demo →</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+
+  <div class="badge">
+    <div class="badge-dot"></div>
+    Now live — free to use
+  </div>
+
+  <h1>
+    Know exactly what<br>
+    your <span class="accent">AI agent</span><br>
+    <span class="dim">is doing wrong</span>
+  </h1>
+
+  <p class="hero-sub">
+    Log every conversation, extract user intent automatically, detect failures before users churn, and get AI-suggested prompt improvements.
+  </p>
+
+  <div class="hero-actions">
+    <a href="https://agent-lens-two.vercel.app
+" target="_blank" class="btn-primary">
+      See Live Demo →
+    </a>
+    <a href="https://github.com/Shraman123/AgentLens" target="_blank" class="btn-ghost">
+      ★ GitHub
+    </a>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat">
+      <span class="stat-num">1</span>
+      <span class="stat-label">Line to integrate</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">$0</span>
+      <span class="stat-label">To get started</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">&lt;2s</span>
+      <span class="stat-label">Analysis speed</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">100%</span>
+      <span class="stat-label">Open source</span>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD PREVIEW -->
+<div class="preview-section reveal">
+  <div class="preview-wrap">
+    <div class="preview-bar">
+      <div class="preview-dot" style="background:#ff5f57"></div>
+      <div class="preview-dot" style="background:#febc2e"></div>
+      <div class="preview-dot" style="background:#28c840"></div>
+      <div class="preview-url">agentlens.vercel.app/dashboard</div>
+    </div>
+    <div class="preview-inner">
+      <div class="mini-stat">
+        <div class="mini-stat-label">Total Conversations</div>
+        <div class="mini-stat-val" style="color:var(--accent)">2,847</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">Analyzed</div>
+        <div class="mini-stat-val" style="color:var(--blue)">2,847</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">Failures</div>
+        <div class="mini-stat-val" style="color:var(--red)">312</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">Failure Rate</div>
+        <div class="mini-stat-val" style="color:var(--yellow)">11%</div>
+      </div>
+    </div>
+    <div class="preview-bottom">
+      <div class="mini-panel">
+        <div class="mini-panel-title">Top Intents</div>
+        <div class="mini-intent-row"><div class="mini-intent-label">get_refund</div><div class="mini-bar"><div class="mini-bar-fill" style="width:90%"></div></div></div>
+        <div class="mini-intent-row"><div class="mini-intent-label">reset_password</div><div class="mini-bar"><div class="mini-bar-fill" style="width:70%"></div></div></div>
+        <div class="mini-intent-row"><div class="mini-intent-label">report_issue</div><div class="mini-bar"><div class="mini-bar-fill" style="width:55%"></div></div></div>
+        <div class="mini-intent-row"><div class="mini-intent-label">check_price</div><div class="mini-bar"><div class="mini-bar-fill" style="width:40%"></div></div></div>
+        <div class="mini-intent-row"><div class="mini-intent-label">cancel_subscription</div><div class="mini-bar"><div class="mini-bar-fill" style="width:28%"></div></div></div>
+      </div>
+      <div class="mini-panel">
+        <div class="mini-panel-title">Sentiment Breakdown</div>
+        <div class="mini-sent-row">
+          <div class="mini-sent-pill" style="color:var(--accent);border-color:rgba(0,255,136,0.25);background:rgba(0,255,136,0.05)">positive · 18%</div>
+          <div class="mini-sent-pill" style="color:var(--text3);border-color:var(--border2);background:var(--bg3)">neutral · 71%</div>
+          <div class="mini-sent-pill" style="color:var(--red);border-color:rgba(255,68,68,0.25);background:rgba(255,68,68,0.05)">negative · 11%</div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:4px;align-items:flex-end;height:60px">
+          <div style="flex:1;background:var(--accent);opacity:0.7;border-radius:2px 2px 0 0;height:40%"></div>
+          <div style="flex:1;background:var(--accent);opacity:0.8;border-radius:2px 2px 0 0;height:60%"></div>
+          <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:100%"></div>
+          <div style="flex:1;background:var(--accent);opacity:0.9;border-radius:2px 2px 0 0;height:80%"></div>
+          <div style="flex:1;background:var(--accent);opacity:0.6;border-radius:2px 2px 0 0;height:50%"></div>
+          <div style="flex:1;background:var(--accent);opacity:0.75;border-radius:2px 2px 0 0;height:70%"></div>
+          <div style="flex:1;background:var(--accent);opacity:0.85;border-radius:2px 2px 0 0;height:90%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="reveal">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything you need to<br>understand your AI agent</h2>
+    <p class="section-sub">Stop guessing. Start knowing exactly what's working and what's broken.</p>
+  </div>
+  <div class="features-grid reveal">
+    <div class="feature-card">
+      <div class="feature-icon">📡</div>
+      <div class="feature-title">Conversation Logging</div>
+      <p class="feature-desc">One line of Python to log every conversation. Works with any LLM, any framework — OpenAI, Anthropic, Groq, LangChain, everything.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <div class="feature-title">Intent Extraction</div>
+      <p class="feature-desc">AI automatically labels what every user was trying to do. Discover your top use cases without reading thousands of conversations.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💥</div>
+      <div class="feature-title">Failure Detection</div>
+      <p class="feature-desc">Automatically identifies where your agent failed, gave wrong info, or frustrated users — before they churn.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">😤</div>
+      <div class="feature-title">Sentiment Analysis</div>
+      <p class="feature-desc">Know which conversations left users happy, neutral, or frustrated. Spot patterns before they become complaints.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">Prompt Lab</div>
+      <p class="feature-desc">Paste your system prompt. AI analyzes your failure patterns and suggests exactly what to change and why.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔑</div>
+      <div class="feature-title">Simple API</div>
+      <p class="feature-desc">REST API with project-scoped API keys. Works as a decorator, async client, or direct HTTP call. Zero friction integration.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="how-inner">
+    <div class="reveal">
+      <div class="section-label">How it works</div>
+      <h2 class="section-title">Up and running in 5 minutes</h2>
+      <p class="section-sub">No complex setup. No SDKs to learn. Just log, analyze, improve.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-num">01 — LOG</div>
+        <div class="step-title">Integrate in one line</div>
+        <p class="step-desc">Add our Python SDK to your agent. Every conversation is automatically captured with session tracking and metadata.</p>
+        <div class="step-code">from agentlens import AgentLens<br><br>lens = AgentLens(api_key="ak_...")<br><br>@lens.watch<br>def my_agent(msg): ...<br></div>
+      </div>
+      <div class="step">
+        <div class="step-num">02 — ANALYZE</div>
+        <div class="step-title">AI extracts the signal</div>
+        <p class="step-desc">Click "Run Analysis" or set auto-schedule. AI reads every conversation and extracts intent, sentiment, and failure reasons in seconds.</p>
+        <div class="step-code">POST /analyze<br><br>→ intent: "get_refund"<br>→ sentiment: "negative"<br>→ is_failure: true<br>→ reason: "agent deflected"</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03 — IMPROVE</div>
+        <div class="step-title">Fix what's broken</div>
+        <p class="step-desc">See your failure patterns on the dashboard. Use Prompt Lab to get AI-generated improvements to your system prompt based on real failures.</p>
+        <div class="step-code">Top failures this week:<br>• "Can't process refunds"<br>• "Out of scope requests"<br>• "Missing product info"<br><br>→ Suggested prompt fix ✓</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="reveal">
+    <div class="section-label">Pricing</div>
+    <h2 class="section-title">Start free, scale as you grow</h2>
+    <p class="section-sub" style="margin:0 auto 0">No credit card required. Free forever for small projects.</p>
+  </div>
+  <div class="pricing-grid reveal">
+    <div class="pricing-card">
+      <div class="pricing-plan">Free</div>
+      <div class="pricing-price">$0</div>
+      <div class="pricing-period">forever</div>
+      <ul class="pricing-features">
+        <li>10,000 conversations/month</li>
+        <li>AI intent + sentiment analysis</li>
+        <li>Failure detection</li>
+        <li>Prompt Lab</li>
+        <li>1 project</li>
+        <li>Community support</li>
+      </ul>
+      <a href="#signup" class="pricing-btn pricing-btn-ghost">Get started free</a>
+    </div>
+    <div class="pricing-card featured">
+      <div class="pricing-tag">COMING SOON</div>
+      <div class="pricing-plan">Pro</div>
+      <div class="pricing-price">$29</div>
+      <div class="pricing-period">per month</div>
+      <ul class="pricing-features">
+        <li>Unlimited conversations</li>
+        <li>Auto-analysis on schedule</li>
+        <li>Email alerts on failure spikes</li>
+        <li>Multiple projects</li>
+        <li>Team members</li>
+        <li>Priority support</li>
+      </ul>
+      <a href="#signup" class="pricing-btn pricing-btn-primary">Join waitlist</a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA / SIGNUP -->
+<section class="cta-section" id="signup">
+  <div class="cta-glow"></div>
+  <div class="reveal">
+    <h2 class="cta-title">Ready to understand<br>your <span style="color:var(--accent)">AI agent?</span></h2>
+    <p class="cta-sub">Join the waitlist. Get early access + Pro free for 3 months.</p>
+    <form class="email-form" onsubmit="handleSubmit(event)">
+      <input class="email-input" type="email" placeholder="you@company.com" required id="emailInput"/>
+      <button class="email-btn" type="submit">Get Early Access</button>
+    </form>
+    <div class="form-note">No spam. Unsubscribe anytime.</div>
+    <div class="success-msg" id="successMsg">✓ You're on the list! We'll be in touch soon.</div>
+    <div style="margin-top:32px">
+      <a href="https://agent-lens-two.vercel.app
+" target="_blank" class="btn-ghost" style="display:inline-flex">Try Live Demo →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">AgentLens</div>
+  <div class="footer-note">Built in public · Open source · Free to use</div>
+</footer>
+
+<script>
+// scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// email form
+function handleSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('emailInput').value;
+  // Save to localStorage as simple waitlist
+  const list = JSON.parse(localStorage.getItem('waitlist') || '[]');
+  list.push({ email, date: new Date().toISOString() });
+  localStorage.setItem('waitlist', JSON.stringify(list));
+  document.querySelector('.email-form').style.display = 'none';
+  document.querySelector('.form-note').style.display = 'none';
+  document.getElementById('successMsg').style.display = 'block';
+  console.log('Waitlist:', JSON.stringify(list));
+}
+</script>
+</body>
+</html>

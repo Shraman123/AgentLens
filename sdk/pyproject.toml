@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "agentlens"
+version = "0.2.0"
+description = "Production monitoring & analytics for AI agents — one decorator, full visibility"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "AgentLens", email = "hello@agentlens.dev" }]
+keywords = ["ai", "llm", "monitoring", "observability", "agents", "analytics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "httpx>=0.25.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "respx"]
+
+[project.urls]
+Homepage = "https://agentlens.dev"
+Repository = "https://github.com/Shraman123/AgentLens"
+Documentation = "https://github.com/Shraman123/AgentLens#readme"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentlens*"]

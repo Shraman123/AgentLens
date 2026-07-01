@@ -161,7 +161,7 @@ export default function Dashboard() {
                   <td>{c.sentiment ? <span className={`badge badge-${c.sentiment}`}>{c.sentiment}</span> : "—"}</td>
                   <td>{c.is_failure ? <span className="badge badge-failure">failure</span> : <span style={{ color: "var(--accent)", fontSize: 11 }}>✓ ok</span>}</td>
                   <td style={{ color: "var(--text3)", fontFamily: "IBM Plex Mono", fontSize: 11 }}>
-                    {new Date(c.created_at * 1000).toLocaleTimeString()}
+                    {c.created_at ? new Date(c.created_at).toLocaleTimeString() : '—'}
                   </td>
                 </tr>
               ))}

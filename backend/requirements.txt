@@ -4,3 +4,4 @@ groq==0.13.0
 pydantic==2.10.3
 python-multipart==0.0.12
 supabase==2.10.0
+apscheduler==3.10.4
